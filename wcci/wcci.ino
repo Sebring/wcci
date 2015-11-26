@@ -11,17 +11,15 @@
 #define BLINK_COUNT 1
 #define BLINK_DURATION 500
 
+#define ESP_ACTIVE false
+
 String commandLock = "GET /log_visit_state/0 HTTP/1.0\r\n\r\n";
 String commandUnlock = "GET /log_visit_state/1 HTTP/1.0\r\n\r\n";
 
-int count;
-int lastState;
-int courtesyDelay = 6;
-long lastStateTimestamp;
-
-
-// sometimes you want to run with leds only
-boolean espActive = false;
+int gCount;
+int gLastState;
+int gCourtesyDelay = 6;
+long gLastStateTimestamp;
 
 void setup() {
 
@@ -35,14 +33,14 @@ void setup() {
 
   // setup the switch
   pinMode(SWITCH, INPUT_PULLUP);
-  lastState = digitalRead(SWITCH);
-  lastStateTimestamp = millis();
+  gLastState = digitalRead(SWITCH);
+  gLastStateTimestamp = millis();
   delay(100);
   attachInterrupt(digitalPinToInterrupt(SWITCH), onLockStateChange, CHANGE);
 
   digitalWrite(GREEN, HIGH);
 
-  if (!espActive)
+  if (!ESP_ACTIVE)
     return; // bail to loop
   
   // setup serial with esp-01
@@ -70,19 +68,16 @@ void setup() {
   if (!sendATJoinNetwork()) blinkLEDForever();
   blink(BLINK_COUNT, BLINK_DURATION, 1, 1, 1);
 }
-
-
-
 void loop() {
-  if (lastState == LOW) {
-    count++;
-  } else if (count > 0) { 
-      count -= courtesyDelay;
+  if (gLastState == LOW) {
+    gCount++;
+  } else if (gCount > 0) { 
+      gCount -= gCourtesyDelay;
       digitalWrite(RED, LOW);
       digitalWrite(YELLOW, HIGH);
       digitalWrite(GREEN, LOW);
   } else {
-      count = 0;
+      gCount = 0;
       digitalWrite(RED, LOW);
       digitalWrite(YELLOW, LOW);
       digitalWrite(GREEN, HIGH);
@@ -108,10 +103,10 @@ void blink(int count, int duration, int r, int y, int g) {
 void onLockStateChange() {
   long now = millis();
   int state = digitalRead(SWITCH);
-  if (state != lastState && now - lastStateTimestamp > 50) {
-    lastStateTimestamp = millis();
-    lastState = state;
-    if (lastState == LOW) {
+  if (state != gLastState && now - gLastStateTimestamp > 50) {
+    gLastStateTimestamp = millis();
+    gLastState = state;
+    if (gLastState == LOW) {
       sendLock();
     } else {
       sendUnlock();
@@ -125,7 +120,7 @@ bool sendLock() {
   digitalWrite(YELLOW, LOW);
   digitalWrite(GREEN, LOW);
   
-  if (espActive) {
+  if (ESP_ACTIVE) {
     if (!sendATConnectServer()) return false;
     if (!sendATPrepareLockDoor()) return false;
     if (!sendATLockDoor()) return false;
@@ -140,7 +135,7 @@ bool sendUnlock() {
   digitalWrite(YELLOW, HIGH);
   digitalWrite(GREEN, LOW);
   
-  if (espActive) {
+  if (ESP_ACTIVE) {
     if (!sendATConnectServer()) return false;
     if (!sendATPrepareUnlockDoor()) return false;
     if (!sendATUnlockDoor()) return false;
