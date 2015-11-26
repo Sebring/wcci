@@ -11,13 +11,14 @@
 #define BLINK_COUNT 1
 #define BLINK_DURATION 500
 
-#define ESP_ACTIVE false
+#define ESP_ACTIVE true
 
 String commandLock = "GET /log_visit_state/0 HTTP/1.0\r\n\r\n";
 String commandUnlock = "GET /log_visit_state/1 HTTP/1.0\r\n\r\n";
 
 int gCount;
 int gLastState;
+bool gStateChanged = false;
 int gCourtesyDelay = 6;
 long gLastStateTimestamp;
 
@@ -40,11 +41,13 @@ void setup() {
 
   digitalWrite(GREEN, HIGH);
 
-  if (!ESP_ACTIVE)
+  if (!ESP_ACTIVE) {
     return; // bail to loop
+  }
   
   // setup serial with esp-01
   digitalWrite(LED, HIGH);
+  digitalWrite(GREEN, LOW);
   Serial.begin(115200);
   Serial.setTimeout(10000);
 
@@ -68,7 +71,18 @@ void setup() {
   if (!sendATJoinNetwork()) blinkLEDForever();
   blink(BLINK_COUNT, BLINK_DURATION, 1, 1, 1);
 }
+
 void loop() {
+  bool success = true;
+  if (gStateChanged) {
+    if (gLastState == LOW) {
+      success = sendLock();
+    } else {
+      success = sendUnlock();
+    }
+    gStateChanged = false;
+  }
+  
   if (gLastState == LOW) {
     gCount++;
   } else if (gCount > 0) { 
@@ -82,7 +96,11 @@ void loop() {
       digitalWrite(YELLOW, LOW);
       digitalWrite(GREEN, HIGH);
   }
+
   
+  if (success == false) {
+    blinkLEDForever();
+  }
   delay(500);
 }
 
@@ -103,14 +121,11 @@ void blink(int count, int duration, int r, int y, int g) {
 void onLockStateChange() {
   long now = millis();
   int state = digitalRead(SWITCH);
+ 
   if (state != gLastState && now - gLastStateTimestamp > 50) {
     gLastStateTimestamp = millis();
+    gStateChanged = true;
     gLastState = state;
-    if (gLastState == LOW) {
-      sendLock();
-    } else {
-      sendUnlock();
-    }
   }
 }
 
