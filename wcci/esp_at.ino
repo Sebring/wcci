@@ -1,3 +1,4 @@
+#include "private.h"
 
 bool sendATCipClose() {
   bool res = false;
@@ -130,8 +131,8 @@ bool sendATMultipleConnections() {
 
 bool sendATJoinNetwork() {
   bool res = false;
-
-  Serial.println("AT+CWJAP=\"ssid\",\"pwd\"");
+//  String SSID = "";
+  Serial.println("AT+CWJAP=" + SSID + "," + PWD );
   // listen for response
     if (Serial.find("OK")) {
 
